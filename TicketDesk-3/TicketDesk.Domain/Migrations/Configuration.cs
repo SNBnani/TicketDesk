@@ -1,12 +1,16 @@
+using TicketDesk.Domain.Identity;
+
 namespace TicketDesk.Domain.Migrations
 {
+    using TicketDesk.Domain.Model;
+    using Microsoft.AspNet.Identity;
+    using Microsoft.AspNet.Identity.EntityFramework;
     using System;
     using System.Data.Entity;
     using System.Data.Entity.Migrations;
     using System.Linq;
-    using TicketDesk.Domain.Model;
 
-    public sealed class Configuration : DbMigrationsConfiguration<TicketDeskContext>
+    internal sealed class Configuration : DbMigrationsConfiguration<TicketDesk.Domain.TicketDeskContext>
     {
         public Configuration()
         {
@@ -14,22 +18,9 @@ namespace TicketDesk.Domain.Migrations
             ContextKey = "TicketDeskDomain";
         }
 
-        protected override void Seed(TicketDeskContext context)
+        protected override void Seed(TicketDesk.Domain.TicketDeskContext context)
         {
-
-            //  This method will be called after migrating to the latest version.
-
-            //  You can use the DbSet<T>.AddOrUpdate() helper extension method 
-            //  to avoid creating duplicate seed data. E.g.
-            //
-            //    context.People.AddOrUpdate(
-            //      p => p.FullName,
-            //      new Person { FullName = "Andrew Peters" },
-            //      new Person { FullName = "Brice Lambson" },
-            //      new Person { FullName = "Rowan Miller" }
-            //    );
-            //
-            var titles = new[] { "A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N", "O", "P" };
+            var titles = new[] { "A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N", "O", "P", "Q", "R" };
             foreach (var p in titles)
             {
                 context.Tickets.AddOrUpdate(t => t.Title,
@@ -40,7 +31,7 @@ namespace TicketDesk.Domain.Migrations
                         AssignedTo = "admin",
                         Category = "Hardware",
                         CreatedBy = "otherstaffer",
-                        TicketStatus = TicketStatus.Active,
+                        TicketStatus = (p == "L") ? TicketStatus.Closed: TicketStatus.Active,
                         CurrentStatusDate = DateTimeOffset.Now,
                         CurrentStatusSetBy = "otherstaffer",
                         Details = "Lorem ipsum dolor sit amet, consectetur adipiscing elit fusce vel sapien elit in malesuada semper mi, id sollicitudin urna fermentum ut fusce varius nisl ac ipsum gravida vel pretium tellus.",
@@ -113,11 +104,56 @@ namespace TicketDesk.Domain.Migrations
 
                 });
 
+            var userManager = new TicketDeskUserManager(context);
+
+            var roleManager = new RoleManager<IdentityRole>(new RoleStore<IdentityRole>(context));
+
+            if (!roleManager.RoleExists("Administrator"))
+            {
+                roleManager.Create(new IdentityRole("Administrator"));
+
+            }
+
+            if (!roleManager.RoleExists("HelpDesk"))
+            {
+                roleManager.Create(new IdentityRole("HelpDesk"));
+
+            }
+
+            if (!roleManager.RoleExists("TicketSubmitter"))
+            {
+                roleManager.Create(new IdentityRole("TicketSubmitter"));
+
+            }
+
+            if (userManager.FindByName("admin") == null)
+            {
+                var user = new UserProfile() { UserName = "admin",  Email = "admin@mydomain.com" };
+                var result = userManager.Create(user, "admin");
+                if (result.Succeeded)
+                {
+                    userManager.AddToRole(user.Id, "Administrator" );
+                    userManager.AddToRole(user.Id, "HelpDesk");
+                    userManager.AddToRole(user.Id, "TicketSubmitter");
+                }                
+            }
+
+            if (userManager.FindByName("otherstaffer") == null)
+            {
+                var user = new UserProfile() { UserName = "otherstaffer", Email = "otherstaffer@mydomain.com" };
+                var result = userManager.Create(user, "otherstaffer");
+                if (result.Succeeded)
+                {
+                    userManager.AddToRole(user.Id, "TicketSubmitter");
+
+                }
+            }
+
+            context = new TicketDeskContext();
+           
 
 
-
+            context.SaveChanges();
         }
     }
-
-
 }
